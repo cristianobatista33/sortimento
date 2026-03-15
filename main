@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoria de Sortimento - Regional Sul | Komprão</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        komprao: {
+                            red: '#dc0c24',    
+                            blue: '#141848',   
+                            dark: '#1a1a1a',
+                            light: '#f4f4f5'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .tab-active {
+            border-bottom: 3px solid #dc0c24;
+            color: #141848;
+            font-weight: 700;
+            background-color: #f8fafc;
+        }
+        
+        .audit-input {
+            width: 70px;
+            padding: 4px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .audit-input:focus {
+            outline: none;
+            border-color: #141848;
+            box-shadow: 0 0 0 2px rgba(20, 24, 72, 0.2);
+        }
+
+        .badge { padding: 4px 10px; border-radius: 9999px; font-weight: 600; font-size: 0.75rem; }
+        .bg-success { background-color: #dcfce7; color: #166534; }
+        .bg-warning { background-color: #fef9c3; color: #854d0e; }
+        .bg-danger { background-color: #fee2e2; color: #991b1b; }
+        
+        .hidden-view { display: none !important; }
+
+        /* Login Screen Overlay */
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: #141848;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased flex flex-col min-h-screen">
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-overlay">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
+            <div class="bg-komprao-red text-white font-bold text-3xl px-6 py-4 rounded-xl shadow-md inline-block mb-6 tracking-wider">
+                <i class="fa-solid fa-cart-shopping mr-2"></i>KOMPRÃO
+            </div>
+            <h2 class="text-2xl font-bold text-komprao-blue mb-2">Auditoria de Sortimento</h2>
+            <p class="text-slate-500 mb-6 text-sm">Regional Sul - Acesso ao Sistema</p>
+
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Tipo de Acesso</label>
+                    <select id="loginType" class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:border-komprao-red" onchange="toggleLoginFields()">
+                        <option value="loja">Acesso Loja</option>
+                        <option value="admin">Acesso Admin (Regional)</option>
+                    </select>
+                </div>
+                
+                <div id="storeSelectField">
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Selecione sua Loja</label>
+                    <select id="loginStore" class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:border-komprao-red">
+                        <option value="57">Loja 57</option>
+                        <option value="58">Loja 58</option>
+                        <option value="60">Loja 60</option>
+                        <option value="61">Loja 61</option>
+                        <option value="62">Loja 62</option>
+                        <option value="66">Loja 66</option>
+                        <option value="70">Loja 70</option>
+                        <option value="86">Loja 86</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Senha</label>
+                    <input type="password" id="loginPassword" class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:border-komprao-red" placeholder="Digite sua senha">
+                </div>
+
+                <div id="loginError" class="text-red-500 text-sm font-semibold hidden-view text-center">Senha incorreta!</div>
+
+                <button onclick="performLogin()" class="w-full bg-komprao-red hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-4">
+                    Entrar no Sistema
+                </button>
+
+                <div class="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
+                    <p><strong>Acesso para Testes:</strong></p>
+                    <p>Senha Admin: <b>admin</b></p>
+                    <p>Senha Loja: <b>loja57</b> (ex: Loja 57)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SISTEMA PRINCIPAL -->
+    <div id="main-app" class="hidden-view flex flex-col min-h-screen">
+        <!-- Navbar -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-20">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-komprao-red text-white font-bold text-xl px-4 py-2 rounded shadow-md flex items-center gap-2 tracking-wider">
+                            <i class="fa-solid fa-cart-shopping"></i> KOMPRÃO
+                        </div>
+                        <div class="hidden md:block border-l-2 border-slate-200 h-10 mx-2"></div>
+                        <div>
+                            <h1 class="text-xl font-bold text-komprao-blue">Auditoria de Sortimento</h1>
+                            <p class="text-sm text-slate-500 font-medium" id="headerUserRole">Regional Sul</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        
+                        <!-- Nuvem Status -->
+                        <div class="bg-slate-50 border border-slate-200 text-komprao-blue px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2" id="cloudIndicator">
+                            <i class="fa-solid fa-spinner fa-spin text-slate-400"></i> <span class="text-xs">Conectando Nuvem...</span>
+                        </div>
+
+                        <!-- Menu Dropdown para Dados -->
+                        <div class="relative group">
+                            <button class="text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+                                <i class="fa-solid fa-database"></i> Backup <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </button>
+                            <div class="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
+                                <button onclick="exportData()" class="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 border-b border-slate-100 text-komprao-blue font-medium">
+                                    <i class="fa-solid fa-download mr-2"></i> Baixar Arquivo JSON
+                                </button>
+                                <label class="w-full block text-left px-4 py-3 text-sm hover:bg-slate-50 border-b border-slate-100 text-komprao-blue font-medium cursor-pointer">
+                                    <i class="fa-solid fa-upload mr-2"></i> Restaurar Arquivo
+                                    <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
+                                </label>
+                                <button onclick="resetData()" id="btnResetData" class="w-full text-left px-4 py-3 text-sm hover:bg-red-50 text-red-600 font-medium">
+                                    <i class="fa-solid fa-trash mr-2"></i> Apagar Toda Nuvem
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-100 text-komprao-blue px-3 py-2 rounded-lg text-sm font-medium">
+                            <i class="fa-regular fa-calendar mr-1"></i> <span id="currentDate"></span>
+                        </div>
+                        <button onclick="performLogout()" class="text-sm text-red-500 hover:text-komprao-red border border-red-200 hover:border-red-500 px-3 py-2 rounded-lg font-medium transition-all">
+                            <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Sair
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navegação das Abas -->
+        <div class="bg-white border-b border-slate-200 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <nav class="flex overflow-x-auto hide-scrollbar space-x-2 py-2" id="tabsContainer">
+                    <!-- Abas geradas via JS dependendo do acesso -->
+                </nav>
+            </div>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+            
+            <!-- VISÃO CRONOGRAMA -->
+            <div id="view-cronograma" class="view-section hidden-view">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-komprao-blue">Cronograma de Auditoria de Sortimento</h2>
+                    <p class="text-slate-500">Acompanhamento das listas por semana e detalhamento diário.</p>
+                </div>
+                <!-- Tabela Cronograma -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm whitespace-nowrap">
+                            <thead class="bg-komprao-blue text-white">
+                                <tr>
+                                    <th class="px-6 py-4 font-semibold text-center border-r border-slate-600">SEMANA</th>
+                                    <th class="px-6 py-4 font-semibold text-center">SEG</th>
+                                    <th class="px-6 py-4 font-semibold text-center">TER</th>
+                                    <th class="px-6 py-4 font-semibold text-center">QUA</th>
+                                    <th class="px-6 py-4 font-semibold text-center">QUI</th>
+                                    <th class="px-6 py-4 font-semibold text-center">SEX</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4 text-center font-bold text-slate-700 border-r border-slate-100 bg-slate-50">Semana 1</td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">16/03</div><span class="badge bg-blue-100 text-blue-800 mt-1 inline-block">Lista A</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">17/03</div><span class="badge bg-emerald-100 text-emerald-800 mt-1 inline-block">Lista B</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">18/03</div><span class="badge bg-amber-100 text-amber-800 mt-1 inline-block">Lista C</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">19/03</div><span class="badge bg-purple-100 text-purple-800 mt-1 inline-block">Lista D</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">20/03</div><span class="badge bg-komprao-red text-white mt-1 inline-block">Lista E</span></td>
+                                </tr>
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4 text-center font-bold text-slate-700 border-r border-slate-100 bg-slate-50">Semana 2</td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">23/03</div><span class="badge bg-blue-100 text-blue-800 mt-1 inline-block">Lista F</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">24/03</div><span class="badge bg-emerald-100 text-emerald-800 mt-1 inline-block">Lista G</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">25/03</div><span class="badge bg-amber-100 text-amber-800 mt-1 inline-block">Lista H</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">26/03</div><span class="badge bg-purple-100 text-purple-800 mt-1 inline-block">Lista I</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">27/03</div><span class="badge bg-komprao-red text-white mt-1 inline-block">Lista J</span></td>
+                                </tr>
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4 text-center font-bold text-slate-700 border-r border-slate-100 bg-slate-50">Semana 3</td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">30/03</div><span class="badge bg-blue-100 text-blue-800 mt-1 inline-block">Lista K</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">31/03</div><span class="badge bg-emerald-100 text-emerald-800 mt-1 inline-block">Lista L</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">01/04</div><span class="badge bg-amber-100 text-amber-800 mt-1 inline-block">Lista M</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">02/04</div><span class="badge bg-purple-100 text-purple-800 mt-1 inline-block">Lista N</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">03/04</div><span class="badge bg-komprao-red text-white mt-1 inline-block">Lista O</span></td>
+                                </tr>
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4 text-center font-bold text-slate-700 border-r border-slate-100 bg-slate-50">Semana 4</td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">06/04</div><span class="badge bg-blue-100 text-blue-800 mt-1 inline-block">Lista P</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">07/04</div><span class="badge bg-emerald-100 text-emerald-800 mt-1 inline-block">Lista Q</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">08/04</div><span class="badge bg-amber-100 text-amber-800 mt-1 inline-block">Lista R</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">09/04</div><span class="badge bg-purple-100 text-purple-800 mt-1 inline-block">Lista S</span></td>
+                                    <td class="px-6 py-4 text-center"><div class="font-medium text-slate-800">10/04</div><span class="badge bg-komprao-red text-white mt-1 inline-block">Lista T</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-komprao-red text-xl"></i>
+                    <h3 class="text-xl font-bold text-slate-800">Detalhamento Diário (16/03 a 10/04)</h3>
+                </div>
+                <div id="detailed-schedule-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
+                    <!-- Cards renderizados via JS -->
+                </div>
+            </div>
+
+            <!-- VISÃO REGIONAL (Dashboard Consolidado) -->
+            <div id="view-regional" class="view-section hidden-view">
+                <div class="mb-6 flex justify-between items-end">
+                    <div>
+                        <h2 class="text-2xl font-bold text-komprao-blue">Visão Consolidada - Regional Sul</h2>
+                        <p class="text-slate-500">Resumo de todas as 8 lojas auditadas. (Atualizado em tempo real)</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 border-t-4 border-t-komprao-blue">
+                        <p class="text-sm font-semibold text-slate-500 uppercase">Média de Ruptura</p>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <h3 class="text-3xl font-bold text-komprao-blue" id="reg-ruptura">0%</h3>
+                            <span class="text-sm text-slate-400">regional</span>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 border-t-4 border-t-emerald-500">
+                        <p class="text-sm font-semibold text-slate-500 uppercase">Progresso da Auditoria</p>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <h3 class="text-3xl font-bold text-slate-800" id="reg-progresso">0%</h3>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5 mt-3">
+                            <div id="reg-progresso-bar" class="bg-emerald-500 h-1.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 border-t-4 border-t-komprao-red">
+                        <p class="text-sm font-semibold text-slate-500 uppercase">Maior Ofensor (Loja)</p>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <h3 class="text-2xl font-bold text-slate-800" id="reg-pior-loja">-</h3>
+                        </div>
+                        <p class="text-xs text-komprao-red mt-1 font-medium" id="reg-pior-loja-val">0% de ruptura</p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 border-t-4 border-t-komprao-blue">
+                        <p class="text-sm font-semibold text-slate-500 uppercase">Itens Avaliados</p>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <h3 class="text-3xl font-bold text-slate-800" id="reg-total-itens">0</h3>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">esperados na regional</p>
+                    </div>
+                </div>
+
+                <!-- Seção de Quebra Financeira -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 lg:col-span-2">
+                        <h3 class="font-semibold text-slate-800 mb-4">Evolução de Quebra Financeira por Dia (Regional)</h3>
+                        <div class="relative h-64">
+                            <canvas id="chartRegionalBreakage"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col justify-center items-center text-center border-l-4 border-l-komprao-red">
+                        <div class="w-16 h-16 bg-red-100 text-komprao-red rounded-full flex items-center justify-center text-2xl mb-4">
+                            <i class="fa-solid fa-file-invoice-dollar"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-500 uppercase">Quebra Total Acumulada</p>
+                        <h3 class="text-4xl font-bold text-komprao-red mt-2" id="reg-total-breakage">R$ 0,00</h3>
+                        <p class="text-xs text-slate-400 mt-2">Soma de todas as quebras registradas pelas lojas na nuvem</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 lg:col-span-2">
+                        <h3 class="font-semibold text-slate-800 mb-4">Ruptura por Loja (%)</h3>
+                        <div class="relative h-64">
+                            <canvas id="chartLojas"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                        <h3 class="font-semibold text-slate-800 mb-4">Ruptura por Categoria (Top 5)</h3>
+                        <div class="relative h-56 flex justify-center">
+                            <canvas id="chartCategoriasRegional"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                        <h3 class="font-semibold text-slate-800">Top Itens Ofensores (Regional)</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+                                <tr>
+                                    <th class="px-6 py-3">Categoria / Subcategoria</th>
+                                    <th class="px-6 py-3 text-center">Ruptura Média</th>
+                                    <th class="px-6 py-3 text-center">Lojas c/ Falta</th>
+                                </tr>
+                            </thead>
+                            <tbody id="regionalTableBody" class="divide-y divide-slate-100">
+                                <!-- Gerado via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISÃO POR LOJA (Input de Dados & Dashboard Individual) -->
+            <div id="view-loja" class="view-section hidden-view">
+                <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-komprao-blue">Dashboard - <span id="currentStoreName" class="text-komprao-red">Loja 00</span></h2>
+                        <p class="text-slate-500">Resumo e preenchimento de quantidades físicas e quebras financeiras.</p>
+                    </div>
+                    <div class="bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
+                        <div>
+                            <p class="text-xs text-slate-500 font-semibold uppercase">Progresso</p>
+                            <p class="font-bold text-emerald-600" id="loja-progresso-txt">0%</p>
+                        </div>
+                        <div class="h-8 w-px bg-slate-200"></div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-semibold uppercase">Ruptura Atual</p>
+                            <p class="font-bold text-red-600" id="loja-ruptura-txt">0%</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registro de Quebra Diária -->
+                <div class="bg-white rounded-xl shadow-sm border border-red-100 p-5 mb-8 border-l-4 border-l-komprao-red">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-file-invoice-dollar text-komprao-red text-lg"></i>
+                        <h3 class="font-bold text-slate-800">Registro de Quebra Financeira Diária</h3>
+                    </div>
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Data da Quebra</label>
+                            <select id="breakageDate" onchange="loadBreakageData()" class="w-48 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-komprao-red bg-white">
+                                <!-- Opções geradas via JS -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Valor Total (R$)</label>
+                            <input type="number" id="breakageValue" placeholder="0.00" class="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-komprao-red">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Nº Nota Fiscal</label>
+                            <input type="text" id="breakageNF" placeholder="Ex: 123456" class="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-komprao-red">
+                        </div>
+                        <button onclick="saveBreakageData()" class="bg-komprao-red hover:bg-red-800 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
+                            <i class="fa-solid fa-save mr-1"></i> Salvar Nuvem
+                        </button>
+                        <span id="breakageSaveFeedback" class="text-xs font-semibold text-emerald-600 opacity-0 transition-opacity duration-300 ml-2">
+                            <i class="fa-solid fa-check"></i> Salvo!
+                        </span>
+                    </div>
+                </div>
+
+                <!-- DASHBOARD INDIVIDUAL DA LOJA -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Resumo Status -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-semibold text-slate-800 mb-4">Status da Auditoria</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-slate-50 p-4 rounded-lg text-center border border-slate-100">
+                                    <p class="text-xs text-slate-500 uppercase font-semibold">Avaliados</p>
+                                    <p class="text-2xl font-bold text-komprao-blue" id="store-kpi-checked">0</p>
+                                </div>
+                                <div class="bg-slate-50 p-4 rounded-lg text-center border border-slate-100">
+                                    <p class="text-xs text-slate-500 uppercase font-semibold">Pendentes</p>
+                                    <p class="text-2xl font-bold text-slate-400" id="store-kpi-pending">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-100">
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-500">Itens Regulares (Rupt. < 5%)</span>
+                                <span class="font-bold text-emerald-600" id="store-kpi-regular">0</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm mt-1">
+                                <span class="text-slate-500">Itens Críticos (Rupt. > 20%)</span>
+                                <span class="font-bold text-red-600" id="store-kpi-critical">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Grafico Onde estao -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                        <h3 class="font-semibold text-slate-800 mb-4">Distribuição do Sortimento Físico</h3>
+                        <div class="relative h-40 flex justify-center">
+                            <canvas id="chartStoreLocations"></canvas>
+                        </div>
+                        <p class="text-xs text-center text-slate-500 mt-2">Visão: Venda vs. Picking vs. Depósito.</p>
+                    </div>
+
+                    <!-- Grafico Top Rupturas -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                        <h3 class="font-semibold text-slate-800 mb-4">Top Categorias c/ Falta</h3>
+                        <div class="relative h-40">
+                            <canvas id="chartStoreTopRuptura"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabela de Input -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 bg-slate-50 flex flex-wrap justify-between items-center gap-4">
+                        <div class="flex flex-wrap gap-4">
+                            <div class="relative">
+                                <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" id="searchInput" placeholder="Buscar item..." class="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-komprao-blue w-64">
+                            </div>
+                            <select id="dateFilter" class="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-komprao-blue bg-white text-slate-600 font-medium cursor-pointer">
+                                <!-- Opções geradas via JS -->
+                            </select>
+                        </div>
+                        <div class="text-xs font-semibold px-3 py-1 bg-blue-100 text-blue-800 rounded-full flex items-center gap-1 shadow-sm transition-opacity duration-300 opacity-0" id="saveIndicator">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Sincronizado
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto max-h-[600px]">
+                        <table class="w-full text-left text-sm whitespace-nowrap">
+                            <thead class="bg-komprao-blue text-white sticky top-0 z-10">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold">Categoria / Item</th>
+                                    <th class="px-4 py-3 text-center font-semibold" title="Quantidade Ideal que deveria ter">Ideal</th>
+                                    <th class="px-4 py-3 text-center font-semibold bg-blue-600/20">Área Venda</th>
+                                    <th class="px-4 py-3 text-center font-semibold bg-purple-600/20">Picking</th>
+                                    <th class="px-4 py-3 text-center font-semibold bg-amber-600/20">Depósito</th>
+                                    <th class="px-4 py-3 text-center font-semibold">Total Enc.</th>
+                                    <th class="px-4 py-3 text-center font-semibold">% Ruptura</th>
+                                    <th class="px-4 py-3 text-center font-semibold">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="storeTableBody" class="divide-y divide-slate-100">
+                                <!-- Gerado via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Rodapé -->
+        <footer class="bg-komprao-blue text-slate-300 py-6 mt-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-shield-halved text-komprao-red text-2xl"></i>
+                    <div>
+                        <p class="font-semibold text-white">Sistema de Auditoria de Sortimento</p>
+                        <p class="text-xs">Uso interno exclusivo - Regional Sul Komprão</p>
+                    </div>
+                </div>
+                <div class="text-sm font-medium">
+                    Criado por <span class="text-white">Cristiano Batista</span> <i class="fa-solid fa-code text-komprao-red ml-1"></i>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Módulo Firebase Nuvem -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        // CONFIGURAÇÃO DO SEU BANCO DE DADOS FIREBASE 
+        // =========================================================================
+        const MEU_FIREBASE_CONFIG = {
+          apiKey: "AIzaSyBFJuz7FgQoFj0kCScAMMdawOy5-DFj5mk",
+          authDomain: "sortimento-c4da2.firebaseapp.com",
+          projectId: "sortimento-c4da2",
+          storageBucket: "sortimento-c4da2.firebasestorage.app",
+          messagingSenderId: "787858022572",
+          appId: "1:787858022572:web:7ff693c2c6f541f2f2bf09",
+          measurementId: "G-GX4DX0RMNS"
+        };
+        
+        // --- CONFIGURAÇÕES BASE & DADOS ---
+        const Lojas = ['57', '58', '60', '61', '62', '66', '70', '86'];
+        
+        const cronogramaDiario = [
+            { data: "16/03", dia: "Segunda", lista: "Lista A", categorias: ["LIMPEZA (Desodorizador - Antimofo, Inseticida, Limpeza de Banheiro, Limpeza de Cozinha, Limpeza de Piso)"] },
+            { data: "17/03", dia: "Terça", lista: "Lista B", categorias: ["LIMPEZA (Limpeza de Roupa, Limpeza Geral, Papel Higiênico)"] },
+            { data: "18/03", dia: "Quarta", lista: "Lista C", categorias: ["SECA SALGADA (Atomatados, Azeite, Conserva e Enlatado, Especiarias Temperos)"] },
+            { data: "19/03", dia: "Quinta", lista: "Lista D", categorias: ["SECA SALGADA (Grãos e Farináceos, Massas, Molhos Complementares, Orientais, Prato Pronto Semi Pronto, Sal, Sopa - Canjão e Cremes, Vinagre)"] },
+            { data: "20/03", dia: "Sexta", lista: "Lista E", categorias: ["BEBIDAS NÃO ALCOÓLICAS (Bebida Energética, Hidratação, Refrigerantes, Sucos e Afins)", "BEBIDAS QUENTES (Absinto, Aperitivos, Bebidas Alcoólicas Mistas, Cachaça, Conhaque, Coquetel, Gin, Licor, Preparos, Rum, Saquê, Steinhager, Tequila, Vodka, Whisky)"] },
+            { data: "23/03", dia: "Segunda", lista: "Lista F", categorias: ["CERVEJAS (Artesanal, Chopp, Escura, Pilsen, Sem Álcool)", "COMMODITIES (Açúcar, Arroz, Cestas, Farinhas Misturas, Feijão, Óleo)", "ELETRO (Linha Branca, Linha Marrom, Portáteis, Telefonia)"] },
+            { data: "24/03", dia: "Terça", lista: "Lista G", categorias: ["VINHOS E ESPUMANTES (Espumantes, Vinhos)"] },
+            { data: "25/03", dia: "Quarta", lista: "Lista H", categorias: ["BAZAR (Acessórios Limp - Organiz, Automotivo, Banheiro, Brinquedos, Calçados, Camping - Praia e Piscina)"] },
+            { data: "26/03", dia: "Quinta", lista: "Lista I", categorias: ["BAZAR (Churrasco, Cozinha, Decoração, Descartáveis, Jardinagem, Linha Bebê)"] },
+            { data: "27/03", dia: "Sexta", lista: "Lista J", categorias: ["BAZAR (Manutenção, Panelas e Frigideiras, Papelaria, Pet Shop, Serviços, Servir, Térmicos, Têxtil)"] },
+            { data: "30/03", dia: "Segunda", lista: "Lista K", categorias: ["HIGIENE BELEZA (Artigo de Farmácia, Cuidados com o Cabelo)"] },
+            { data: "31/03", dia: "Terça", lista: "Lista L", categorias: ["HIGIENE BELEZA (Cuidados Femininos, Cuidados Masculinos, Higiene Bucal, Maquiagem, Melhor Idade, Mundo Bebê)"] },
+            { data: "01/04", dia: "Quarta", lista: "Lista M", categorias: ["HIGIENE BELEZA (Banho, Cuidados com o Corpo, Cuidados com os Pés)"] },
+            { data: "02/04", dia: "Quinta", lista: "Lista N", categorias: ["SECA DOCE (Biscoitos Torradas, Chocolates)"] },
+            { data: "03/04", dia: "Sexta", lista: "Lista O", categorias: ["SECA DOCE (Culinária Doce, Derivados de Leite)"] },
+            { data: "06/04", dia: "Segunda", lista: "Lista P", categorias: ["SECA DOCE (Doces Típicos, Guloseimas, Salgadinhos e Snacks)"] },
+            { data: "07/04", dia: "Terça", lista: "Lista Q", categorias: ["SECA DOCE (Cafés, Matinais, Nutrição Infantil)"] },
+            { data: "08/04", dia: "Quarta", lista: "Lista R", categorias: ["SECA DOCE (Saudáveis, Sazonais)"] },
+            { data: "09/04", dia: "Quinta", lista: "Lista S", categorias: ["PAS (Congelado, Embutido, Fondue, Leite)"] },
+            { data: "10/04", dia: "Sexta", lista: "Lista T", categorias: ["PAS (Resfriado)"] }
+        ];
+
+        const BaseItems = [
+            { id: 1, data: "16/03", cat: "LIMPEZA", sub: "DESODORIZADOR - ANTIMOFO", ideal: 82 },
+            { id: 2, data: "16/03", cat: "LIMPEZA", sub: "INSETICIDA", ideal: 77 },
+            { id: 3, data: "16/03", cat: "LIMPEZA", sub: "LIMPEZA DE BANHEIRO", ideal: 152 },
+            { id: 4, data: "16/03", cat: "LIMPEZA", sub: "LIMPEZA DE COZINHA", ideal: 90 },
+            { id: 5, data: "16/03", cat: "LIMPEZA", sub: "LIMPEZA DE PISO", ideal: 14 },
+            { id: 6, data: "17/03", cat: "LIMPEZA", sub: "LIMPEZA DE ROUPA", ideal: 300 },
+            { id: 7, data: "17/03", cat: "LIMPEZA", sub: "LIMPEZA GERAL", ideal: 182 },
+            { id: 8, data: "17/03", cat: "LIMPEZA", sub: "PAPEL HIGIENICO", ideal: 34 },
+            { id: 9, data: "18/03", cat: "SECA SALGADA", sub: "ATOMATADOS", ideal: 86 },
+            { id: 10, data: "18/03", cat: "SECA SALGADA", sub: "AZEITE", ideal: 31 },
+            { id: 11, data: "18/03", cat: "SECA SALGADA", sub: "CONSERVA E ENLATADO", ideal: 142 },
+            { id: 12, data: "18/03", cat: "SECA SALGADA", sub: "ESPECIARIAS TEMPEROS", ideal: 267 },
+            { id: 13, data: "19/03", cat: "SECA SALGADA", sub: "GRAOS E FARINACEOS", ideal: 118 },
+            { id: 14, data: "19/03", cat: "SECA SALGADA", sub: "MASSAS", ideal: 142 },
+            { id: 15, data: "19/03", cat: "SECA SALGADA", sub: "MOLHOS COMPLEMENTARES", ideal: 168 },
+            { id: 16, data: "19/03", cat: "SECA SALGADA", sub: "ORIENTAIS", ideal: 36 },
+            { id: 17, data: "19/03", cat: "SECA SALGADA", sub: "PRATO PRONTO SEMI PRONTO", ideal: 8 },
+            { id: 18, data: "19/03", cat: "SECA SALGADA", sub: "SAL", ideal: 27 },
+            { id: 19, data: "19/03", cat: "SECA SALGADA", sub: "SOPA - CANJAO E CREMES", ideal: 25 },
+            { id: 20, data: "19/03", cat: "SECA SALGADA", sub: "VINAGRE", ideal: 20 },
+            { id: 21, data: "20/03", cat: "BEBIDAS NAO ALCOOLICAS", sub: "BEBIDA ENERGETICA", ideal: 75 },
+            { id: 22, data: "20/03", cat: "BEBIDAS NAO ALCOOLICAS", sub: "HIDRATACAO", ideal: 93 },
+            { id: 23, data: "20/03", cat: "BEBIDAS NAO ALCOOLICAS", sub: "REFRIGERANTES", ideal: 103 },
+            { id: 24, data: "20/03", cat: "BEBIDAS NAO ALCOOLICAS", sub: "SUCOS E AFINS", ideal: 171 },
+            { id: 25, data: "20/03", cat: "BEBIDAS QUENTES", sub: "ABSINTO", ideal: 1 },
+            { id: 26, data: "20/03", cat: "BEBIDAS QUENTES", sub: "APERITIVOS", ideal: 16 },
+            { id: 27, data: "20/03", cat: "BEBIDAS QUENTES", sub: "BEBIDAS ALCOOLICAS MISTAS", ideal: 49 },
+            { id: 28, data: "20/03", cat: "BEBIDAS QUENTES", sub: "CACHAÇA- AGUARDENTE", ideal: 22 },
+            { id: 29, data: "20/03", cat: "BEBIDAS QUENTES", sub: "CONHAQUE E BRANDY", ideal: 4 },
+            { id: 30, data: "20/03", cat: "BEBIDAS QUENTES", sub: "COQUETEL", ideal: 11 },
+            { id: 31, data: "20/03", cat: "BEBIDAS QUENTES", sub: "GIN", ideal: 15 },
+            { id: 32, data: "20/03", cat: "BEBIDAS QUENTES", sub: "LICOR", ideal: 27 },
+            { id: 33, data: "20/03", cat: "BEBIDAS QUENTES", sub: "PREPAROS DRINKS", ideal: 22 },
+            { id: 34, data: "20/03", cat: "BEBIDAS QUENTES", sub: "RUM", ideal: 7 },
+            { id: 35, data: "20/03", cat: "BEBIDAS QUENTES", sub: "SAQUE", ideal: 3 },
+            { id: 36, data: "20/03", cat: "BEBIDAS QUENTES", sub: "STEINHAGER", ideal: 3 },
+            { id: 37, data: "20/03", cat: "BEBIDAS QUENTES", sub: "TEQUILA", ideal: 6 },
+            { id: 38, data: "20/03", cat: "BEBIDAS QUENTES", sub: "VODKA", ideal: 22 },
+            { id: 39, data: "20/03", cat: "BEBIDAS QUENTES", sub: "WHISKY", ideal: 37 },
+            { id: 40, data: "23/03", cat: "CERVEJAS", sub: "ARTESANAL", ideal: 51 },
+            { id: 41, data: "23/03", cat: "CERVEJAS", sub: "CHOPP", ideal: 9 },
+            { id: 42, data: "23/03", cat: "CERVEJAS", sub: "ESCURA", ideal: 5 },
+            { id: 43, data: "23/03", cat: "CERVEJAS", sub: "PILSEN", ideal: 59 },
+            { id: 44, data: "23/03", cat: "CERVEJAS", sub: "SEM ALCOOL", ideal: 9 },
+            { id: 45, data: "23/03", cat: "COMMODITIES", sub: "ACUCAR", ideal: 21 },
+            { id: 46, data: "23/03", cat: "COMMODITIES", sub: "ARROZ", ideal: 41 },
+            { id: 47, data: "23/03", cat: "COMMODITIES", sub: "CESTAS", ideal: 68 },
+            { id: 48, data: "23/03", cat: "COMMODITIES", sub: "FARINHAS MISTURAS", ideal: 29 },
+            { id: 49, data: "23/03", cat: "COMMODITIES", sub: "FEIJAO", ideal: 17 },
+            { id: 50, data: "23/03", cat: "COMMODITIES", sub: "OLEO", ideal: 13 },
+            { id: 51, data: "23/03", cat: "ELETRO", sub: "LINHA BRANCA", ideal: 22 },
+            { id: 52, data: "23/03", cat: "ELETRO", sub: "LINHA MARROM", ideal: 17 },
+            { id: 53, data: "23/03", cat: "ELETRO", sub: "PORTATEIS", ideal: 62 },
+            { id: 54, data: "23/03", cat: "ELETRO", sub: "TELEFONIA", ideal: 7 },
+            { id: 55, data: "24/03", cat: "VINHOS E ESPUMANTES", sub: "ESPUMANTES", ideal: 115 },
+            { id: 56, data: "24/03", cat: "VINHOS E ESPUMANTES", sub: "VINHOS", ideal: 410 },
+            { id: 57, data: "25/03", cat: "BAZAR", sub: "ACESSORIOS LIMP - ORGANIZ", ideal: 164 },
+            { id: 58, data: "25/03", cat: "BAZAR", sub: "AUTOMOTIVO", ideal: 41 },
+            { id: 59, data: "25/03", cat: "BAZAR", sub: "BANHEIRO", ideal: 3 },
+            { id: 60, data: "25/03", cat: "BAZAR", sub: "BRINQUEDOS", ideal: 28 },
+            { id: 61, data: "25/03", cat: "BAZAR", sub: "CALCADOS", ideal: 253 },
+            { id: 62, data: "25/03", cat: "BAZAR", sub: "CAMPING - PRAIA E PISCINA", ideal: 61 },
+            { id: 63, data: "26/03", cat: "BAZAR", sub: "CHURRASCO", ideal: 39 },
+            { id: 64, data: "26/03", cat: "BAZAR", sub: "COZINHA", ideal: 236 },
+            { id: 65, data: "26/03", cat: "BAZAR", sub: "DECORACAO", ideal: 6 },
+            { id: 66, data: "26/03", cat: "BAZAR", sub: "DESCARTAVEIS", ideal: 209 },
+            { id: 67, data: "26/03", cat: "BAZAR", sub: "JARDINAGEM", ideal: 1 },
+            { id: 68, data: "26/03", cat: "BAZAR", sub: "LINHA BEBE", ideal: 44 },
+            { id: 69, data: "27/03", cat: "BAZAR", sub: "MANUTENCAO", ideal: 76 },
+            { id: 70, data: "27/03", cat: "BAZAR", sub: "PANELAS E FRIGIDEIRAS", ideal: 20 },
+            { id: 71, data: "27/03", cat: "BAZAR", sub: "PAPELARIA", ideal: 120 },
+            { id: 72, data: "27/03", cat: "BAZAR", sub: "PET SHOP", ideal: 221 },
+            { id: 73, data: "27/03", cat: "BAZAR", sub: "SERVICOS", ideal: 9 },
+            { id: 74, data: "27/03", cat: "BAZAR", sub: "SERVIR", ideal: 35 },
+            { id: 75, data: "27/03", cat: "BAZAR", sub: "TERMICOS", ideal: 13 },
+            { id: 76, data: "27/03", cat: "BAZAR", sub: "TEXTIL", ideal: 90 },
+            { id: 77, data: "30/03", cat: "HIGIENE BELEZA", sub: "ARTIGO DE FARMACIA", ideal: 31 },
+            { id: 78, data: "30/03", cat: "HIGIENE BELEZA", sub: "CUIDADOS COM O CABELO", ideal: 544 },
+            { id: 79, data: "31/03", cat: "HIGIENE BELEZA", sub: "CUIDADOS FEMININOS", ideal: 182 },
+            { id: 80, data: "31/03", cat: "HIGIENE BELEZA", sub: "CUIDADOS MASCULINOS", ideal: 72 },
+            { id: 81, data: "31/03", cat: "HIGIENE BELEZA", sub: "HIGIENE BUCAL", ideal: 148 },
+            { id: 82, data: "31/03", cat: "HIGIENE BELEZA", sub: "MAQUIAGEM", ideal: 4 },
+            { id: 83, data: "31/03", cat: "HIGIENE BELEZA", sub: "MELHOR IDADE", ideal: 8 },
+            { id: 84, data: "31/03", cat: "HIGIENE BELEZA", sub: "MUNDO BEBE", ideal: 225 },
+            { id: 85, data: "01/04", cat: "HIGIENE BELEZA", sub: "BANHO", ideal: 190 },
+            { id: 86, data: "01/04", cat: "HIGIENE BELEZA", sub: "CUIDADOS COM O CORPO", ideal: 297 },
+            { id: 87, data: "01/04", cat: "HIGIENE BELEZA", sub: "CUIDADOS COM OS PES", ideal: 7 },
+            { id: 88, data: "02/04", cat: "SECA DOCE", sub: "BISCOITOS TORRADAS", ideal: 292 },
+            { id: 89, data: "02/04", cat: "SECA DOCE", sub: "CHOCOLATES", ideal: 277 },
+            { id: 90, data: "03/04", cat: "SECA DOCE", sub: "CULINARIA DOCE", ideal: 358 },
+            { id: 91, data: "03/04", cat: "SECA DOCE", sub: "DERIVADOS DE LEITE", ideal: 55 },
+            { id: 92, data: "06/04", cat: "SECA DOCE", sub: "DOCES TIPICOS", ideal: 75 },
+            { id: 93, data: "06/04", cat: "SECA DOCE", sub: "GULOSEIMAS", ideal: 208 },
+            { id: 94, data: "06/04", cat: "SECA DOCE", sub: "SALGADINHOS E SNACKS", ideal: 220 },
+            { id: 95, data: "07/04", cat: "SECA DOCE", sub: "CAFES", ideal: 221 },
+            { id: 96, data: "07/04", cat: "SECA DOCE", sub: "MATINAIS", ideal: 200 },
+            { id: 97, data: "07/04", cat: "SECA DOCE", sub: "NUTRICAO INFANTIL", ideal: 68 },
+            { id: 98, data: "08/04", cat: "SECA DOCE", sub: "SAUDAVEIS", ideal: 436 },
+            { id: 99, data: "08/04", cat: "SECA DOCE", sub: "SAZONAIS", ideal: 561 },
+            { id: 100, data: "09/04", cat: "PAS", sub: "CONGELADO", ideal: 381 },
+            { id: 101, data: "09/04", cat: "PAS", sub: "EMBUTIDO", ideal: 176 },
+            { id: 102, data: "09/04", cat: "PAS", sub: "FONDUE", ideal: 5 },
+            { id: 103, data: "09/04", cat: "PAS", sub: "LEITE", ideal: 107 },
+            { id: 104, data: "10/04", cat: "PAS", sub: "RESFRIADO", ideal: 597 }
+        ];
+
+        let appData = {};
+        let currentActiveStore = 'regional';
+        let chartsInstance = {};
+        let authUser = null; 
+        
+        let isCloudMode = true; // Forçar o modo nuvem
+        let db, auth, fbUser;
+        const appId = "komprao-auditoria-2026-v2";
+
+        window.toggleLoginFields = toggleLoginFields;
+        window.performLogin = performLogin;
+        window.performLogout = performLogout;
+        window.exportData = exportData;
+        window.importData = importData;
+        window.resetData = resetData;
+        window.switchTab = switchTab;
+        window.loadBreakageData = loadBreakageData;
+        window.saveBreakageData = saveBreakageData;
+        
+        // --- INICIALIZAÇÃO FIREBASE ---
+        document.getElementById('currentDate').innerText = new Date().toLocaleDateString('pt-BR');
+        
+        try {
+            const app = initializeApp(MEU_FIREBASE_CONFIG);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch(e) {
+            console.error("Erro critico inicializando Firebase. Verifique as chaves.", e);
+        }
+
+        const initAuth = async () => {
+            try {
+                await signInAnonymously(auth);
+            } catch(e) {
+                console.error("Falha ao autenticar anonimamente na nuvem:", e);
+                document.getElementById('cloudIndicator').innerHTML = '<i class="fa-solid fa-cloud-arrow-down text-red-500"></i> <span class="text-xs">Erro de Conexão</span>';
+            }
+        };
+        
+        initAuth();
+
+        onAuthStateChanged(auth, (user) => {
+            fbUser = user;
+            if (user) {
+                setupFirestoreListener();
+                checkAppLogin();
+            }
+        });
+
+        // --- LÓGICA DE DADOS EM NUVEM (FIRESTORE) ---
+        function setupFirestoreListener() {
+            if (!fbUser) return;
+            
+            // Ouvindo alterações em TEMPO REAL de todas as lojas
+            const auditsRef = collection(db, 'artifacts', appId, 'audits');
+            
+            onSnapshot(auditsRef, (snapshot) => {
+                let hasData = false;
+                snapshot.forEach(doc => {
+                    const storeId = doc.id;
+                    if (Lojas.includes(storeId)) {
+                        appData[storeId] = doc.data();
+                        
+                        if(!appData[storeId].breakage) appData[storeId].breakage = {};
+                        
+                        hasData = true;
+                    }
+                });
+
+                const cloudInd = document.getElementById('cloudIndicator');
+                if(cloudInd) cloudInd.innerHTML = '<i class="fa-solid fa-cloud text-emerald-500"></i> <span class="text-xs font-bold text-emerald-600">Nuvem Conectada</span>';
+
+                if (!hasData) {
+                     initEmptyDataCloud();
+                } else {
+                     refreshCurrentView();
+                }
+            }, (error) => {
+                console.error("Erro Nuvem:", error);
+                const cloudInd = document.getElementById('cloudIndicator');
+                if(cloudInd) cloudInd.innerHTML = '<i class="fa-solid fa-cloud-arrow-down text-red-500"></i> <span class="text-xs">Erro Firestore</span>';
+            });
+        }
+
+        async function initEmptyDataCloud() {
+            if (!fbUser) return;
+            Lojas.forEach(async loja => {
+                if(!appData[loja]) appData[loja] = {};
+                if(!appData[loja].breakage) appData[loja].breakage = {};
+                
+                cronogramaDiario.forEach(dia => {
+                    if(!appData[loja].breakage[dia.data]) appData[loja].breakage[dia.data] = { val: '', nf: '' };
+                });
+
+                BaseItems.forEach(item => {
+                    if(!appData[loja][item.id]) appData[loja][item.id] = { av: '', pk: '', dp: '' };
+                });
+                try {
+                    const storeRef = doc(db, 'artifacts', appId, 'audits', loja);
+                    await setDoc(storeRef, appData[loja]);
+                } catch(e){}
+            });
+        }
+
+        let saveTimeout;
+        window.handleInput = function(storeId, itemId, field, value) {
+            if (!appData[storeId]) appData[storeId] = {};
+            if (!appData[storeId][itemId]) appData[storeId][itemId] = { av: '', pk: '', dp: '' };
+
+            appData[storeId][itemId][field] = value;
+
+            // UI
+            const item = BaseItems.find(i => i.id === itemId);
+            const d = appData[storeId][itemId];
+            let isFilled = d.av !== '' || d.pk !== '' || d.dp !== '';
+            
+            if (isFilled) {
+                const calc = calcItem(item.ideal, d.av, d.pk, d.dp);
+                document.getElementById(`tot-${itemId}`).innerText = calc.total;
+                document.getElementById(`rup-${itemId}`).innerText = calc.ruptura + '%';
+                document.getElementById(`rup-${itemId}`).className = `px-4 py-3 text-center font-bold ${calc.ruptura > 20 ? 'text-red-600' : 'text-slate-600'}`;
+                document.getElementById(`badge-${itemId}`).innerHTML = getStatusBadge(calc.ruptura);
+            } else {
+                document.getElementById(`tot-${itemId}`).innerText = '-';
+                document.getElementById(`rup-${itemId}`).innerText = '-';
+                document.getElementById(`badge-${itemId}`).innerHTML = getStatusBadge(null);
+            }
+
+            clearTimeout(window.storeDashboardTimer);
+            window.storeDashboardTimer = setTimeout(() => { updateStoreHeader(storeId); }, 500);
+
+            // Debounce DB Save
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                saveSpecificStore(storeId);
+            }, 1000);
+        }
+
+        // --- LÓGICA DE QUEBRA FINANCEIRA ---
+        function loadBreakageData() {
+            const dateSelect = document.getElementById('breakageDate');
+            if(!dateSelect) return;
+            const date = dateSelect.value;
+            const storeId = currentActiveStore;
+            
+            if(appData[storeId] && appData[storeId].breakage && appData[storeId].breakage[date]) {
+                document.getElementById('breakageValue').value = appData[storeId].breakage[date].val || '';
+                document.getElementById('breakageNF').value = appData[storeId].breakage[date].nf || '';
+            } else {
+                document.getElementById('breakageValue').value = '';
+                document.getElementById('breakageNF').value = '';
+            }
+        }
+
+        function saveBreakageData() {
+            const date = document.getElementById('breakageDate').value;
+            const val = document.getElementById('breakageValue').value;
+            const nf = document.getElementById('breakageNF').value;
+            const storeId = currentActiveStore;
+            
+            if(!appData[storeId]) appData[storeId] = {};
+            if(!appData[storeId].breakage) appData[storeId].breakage = {};
+            
+            appData[storeId].breakage[date] = { val: val, nf: nf };
+            
+            saveSpecificStore(storeId);
+            
+            const feedback = document.getElementById('breakageSaveFeedback');
+            feedback.style.opacity = '1';
+            setTimeout(() => { feedback.style.opacity = '0'; }, 2000);
+        }
+
+        async function saveSpecificStore(storeId) {
+            if (fbUser) {
+                try {
+                    const storeRef = doc(db, 'artifacts', appId, 'audits', storeId);
+                    await setDoc(storeRef, appData[storeId]);
+                    showSaveIndicator();
+                } catch(e) { console.error("Erro salvando na nuvem", e); }
+            } 
+        }
+
+        function showSaveIndicator() {
+            const indicator = document.getElementById('saveIndicator');
+            if(indicator) {
+                indicator.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Sincronizado na Nuvem';
+                indicator.className = 'text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm transition-opacity duration-300 opacity-100 bg-blue-100 text-blue-800';
+                setTimeout(() => { indicator.style.opacity = '0'; }, 2500);
+            }
+        }
+
+        // --- SISTEMA DE LOGIN DA APLICAÇÃO ---
+        function toggleLoginFields() {
+            const type = document.getElementById('loginType').value;
+            const storeField = document.getElementById('storeSelectField');
+            if(type === 'admin') storeField.style.display = 'none';
+            else storeField.style.display = 'block';
+        }
+
+        function checkAppLogin() {
+            const storedUser = sessionStorage.getItem('komprao_session');
+            if(storedUser) {
+                authUser = storedUser;
+                showApp();
+            } else {
+                document.getElementById('login-overlay').style.display = 'flex';
+                document.getElementById('main-app').classList.add('hidden-view');
+            }
+        }
+
+        function performLogin() {
+            const type = document.getElementById('loginType').value;
+            const pass = document.getElementById('loginPassword').value;
+            const store = document.getElementById('loginStore').value;
+            const errorLabel = document.getElementById('loginError');
+
+            errorLabel.classList.add('hidden-view');
+
+            if(type === 'admin') {
+                if(pass === 'admin') {
+                    authUser = 'admin';
+                    finishLogin();
+                } else {
+                    errorLabel.classList.remove('hidden-view');
+                }
+            } else {
+                if(pass === 'loja' + store) {
+                    authUser = store;
+                    finishLogin();
+                } else {
+                    errorLabel.classList.remove('hidden-view');
+                }
+            }
+        }
+
+        function finishLogin() {
+            sessionStorage.setItem('komprao_session', authUser);
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('login-overlay').style.display = 'none';
+            showApp();
+        }
+
+        function performLogout() {
+            sessionStorage.removeItem('komprao_session');
+            authUser = null;
+            document.getElementById('main-app').classList.add('hidden-view');
+            document.getElementById('login-overlay').style.display = 'flex';
+        }
+
+        function showApp() {
+            document.getElementById('main-app').classList.remove('hidden-view');
+            
+            const headerRole = document.getElementById('headerUserRole');
+            if(authUser === 'admin') {
+                headerRole.innerText = 'Acesso Administrador - Regional Sul';
+                document.getElementById('btnResetData').style.display = 'block';
+            } else {
+                headerRole.innerText = 'Acesso Loja ' + authUser;
+                document.getElementById('btnResetData').style.display = 'none';
+            }
+
+            populateDateFilter();
+            populateBreakageDates();
+            renderTabs();
+            renderCronogramaCards();
+
+            if(authUser === 'admin') switchTab('regional');
+            else switchTab(authUser);
+            
+            refreshCurrentView();
+        }
+
+        function refreshCurrentView() {
+            if(!authUser) return;
+            if(currentActiveStore === 'regional') {
+                updateRegionalView();
+            } else if (currentActiveStore !== 'cronograma') {
+                const search = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+                const dFilt = document.getElementById('dateFilter') ? document.getElementById('dateFilter').value : 'all';
+                renderStoreTable(currentActiveStore, search, dFilt);
+                updateStoreHeader(currentActiveStore);
+                loadBreakageData();
+            }
+        }
+
+        // --- BACKUP E IMPORTAÇÃO ---
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `backup_nuvem_auditoria_komprao.json`);
+            document.body.appendChild(downloadAnchorNode); 
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        async function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (fbUser) {
+                        const cloudInd = document.getElementById('cloudIndicator');
+                        cloudInd.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-komprao-blue"></i> <span class="text-xs">Restaurando Nuvem...</span>';
+
+                        for(const loja of Lojas) {
+                            if (importedData[loja]) {
+                                if(!appData[loja]) appData[loja] = {};
+                                
+                                if(importedData[loja].breakage) {
+                                    appData[loja].breakage = importedData[loja].breakage;
+                                }
+
+                                BaseItems.forEach(item => {
+                                    if (importedData[loja][item.id]) {
+                                        appData[loja][item.id] = importedData[loja][item.id];
+                                    }
+                                });
+                                const storeRef = doc(db, 'artifacts', appId, 'audits', loja);
+                                await setDoc(storeRef, appData[loja]);
+                            }
+                        }
+                        alert("Dados restaurados com sucesso para a NUVEM!");
+                    } 
+                    refreshCurrentView();
+                } catch (error) {
+                    alert("Erro ao ler o arquivo. Certifique-se de que é um backup válido.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; 
+        }
+
+        async function resetData() {
+            if(authUser !== 'admin') {
+                alert("Apenas administradores podem limpar o banco de dados.");
+                return;
+            }
+            if(confirm("ATENÇÃO: Deseja apagar TODOS os dados da NUVEM de TODAS as lojas? Faça um backup antes!")) {
+                
+                if(fbUser) {
+                    for(const loja of Lojas) {
+                        appData[loja] = {};
+                        appData[loja].breakage = {};
+                        cronogramaDiario.forEach(dia => {
+                            appData[loja].breakage[dia.data] = { val: '', nf: '' };
+                        });
+                        BaseItems.forEach(item => {
+                            appData[loja][item.id] = { av: '', pk: '', dp: '' };
+                        });
+                        const storeRef = doc(db, 'artifacts', appId, 'audits', loja);
+                        await setDoc(storeRef, appData[loja]);
+                    }
+                    alert("Nuvem limpa com sucesso.");
+                }
+                refreshCurrentView();
+            }
+        }
+
+        // --- INTERFACE (TABS & SELECTORS) ---
+        function populateDateFilter() {
+            const select = document.getElementById('dateFilter');
+            if(!select) return;
+            select.innerHTML = '<option value="all">Todos os Dias</option>';
+            cronogramaDiario.forEach(dia => {
+                select.innerHTML += `<option value="${dia.data}">${dia.data} - ${dia.dia} (${dia.lista})</option>`;
+            });
+            
+            select.addEventListener('change', () => {
+                if(currentActiveStore !== 'regional' && currentActiveStore !== 'cronograma') {
+                    renderStoreTable(currentActiveStore, document.getElementById('searchInput').value, select.value);
+                }
+            });
+        }
+
+        function populateBreakageDates() {
+            const sel = document.getElementById('breakageDate');
+            if(!sel) return;
+            sel.innerHTML = '';
+            cronogramaDiario.forEach(dia => {
+                sel.innerHTML += `<option value="${dia.data}">${dia.data} - ${dia.dia}</option>`;
+            });
+        }
+
+        function getListaBadgeClass(lista) {
+            const letter = lista.replace('Lista ', '');
+            const cycle = {
+                'A': 'bg-blue-100 text-blue-800', 'F': 'bg-blue-100 text-blue-800', 'K': 'bg-blue-100 text-blue-800', 'P': 'bg-blue-100 text-blue-800',
+                'B': 'bg-emerald-100 text-emerald-800', 'G': 'bg-emerald-100 text-emerald-800', 'L': 'bg-emerald-100 text-emerald-800', 'Q': 'bg-emerald-100 text-emerald-800',
+                'C': 'bg-amber-100 text-amber-800', 'H': 'bg-amber-100 text-amber-800', 'M': 'bg-amber-100 text-amber-800', 'R': 'bg-amber-100 text-amber-800',
+                'D': 'bg-purple-100 text-purple-800', 'I': 'bg-purple-100 text-purple-800', 'N': 'bg-purple-100 text-purple-800', 'S': 'bg-purple-100 text-purple-800',
+                'E': 'bg-komprao-red text-white', 'J': 'bg-komprao-red text-white', 'O': 'bg-komprao-red text-white', 'T': 'bg-komprao-red text-white'
+            };
+            return cycle[letter] || "bg-slate-100 text-slate-800";
+        }
+
+        function renderCronogramaCards() {
+            const container = document.getElementById('detailed-schedule-container');
+            if(!container) return;
+            container.innerHTML = '';
+            
+            cronogramaDiario.forEach(dia => {
+                let htmlCat = dia.categorias.map(cat => `<li class="flex items-start gap-2 text-sm text-slate-600 mb-1"><i class="fa-solid fa-check text-emerald-500 mt-1"></i> <span>${cat}</span></li>`).join('');
+                
+                const card = `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start mb-3 border-b border-slate-100 pb-2">
+                        <div>
+                            <p class="font-bold text-slate-800 text-lg">${dia.data}</p>
+                            <p class="text-xs text-slate-500 font-medium uppercase">${dia.dia}</p>
+                        </div>
+                        <span class="badge ${getListaBadgeClass(dia.lista)}">${dia.lista}</span>
+                    </div>
+                    <ul class="pt-1">
+                        ${htmlCat}
+                    </ul>
+                </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        function renderTabs() {
+            const container = document.getElementById('tabsContainer');
+            if(!container) return;
+            let html = '';
+
+            if (authUser === 'admin') {
+                html += `<button onclick="switchTab('regional')" id="tab-regional" class="px-4 py-3 text-sm font-medium rounded-t-lg transition-colors text-slate-500">
+                            <i class="fa-solid fa-chart-pie mr-2"></i>Visão Regional
+                        </button>`;
+            }
+
+            html += `<button onclick="switchTab('cronograma')" id="tab-cronograma" class="px-4 py-3 text-sm font-medium text-slate-500 hover:text-komprao-blue transition-colors">
+                        <i class="fa-regular fa-calendar-days mr-2"></i>Cronograma
+                    </button>`;
+            
+            if (authUser === 'admin') {
+                Lojas.forEach(loja => {
+                    html += `<button onclick="switchTab('${loja}')" id="tab-${loja}" class="px-4 py-3 text-sm font-medium text-slate-500 hover:text-komprao-blue transition-colors">
+                                Loja ${loja}
+                            </button>`;
+                });
+            } else if (authUser) {
+                html += `<button onclick="switchTab('${authUser}')" id="tab-${authUser}" class="px-4 py-3 text-sm font-medium text-slate-500 hover:text-komprao-blue transition-colors">
+                            Minha Loja (${authUser})
+                        </button>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('#tabsContainer button').forEach(b => {
+                b.classList.remove('tab-active');
+                b.classList.add('text-slate-500');
+            });
+            
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            if(activeBtn) {
+                activeBtn.classList.add('tab-active');
+                activeBtn.classList.remove('text-slate-500');
+            }
+
+            currentActiveStore = tabId;
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden-view'));
+
+            if (tabId === 'regional') {
+                document.getElementById('view-regional').classList.remove('hidden-view');
+                updateRegionalView();
+            } else if (tabId === 'cronograma') {
+                document.getElementById('view-cronograma').classList.remove('hidden-view');
+            } else {
+                document.getElementById('view-loja').classList.remove('hidden-view');
+                document.getElementById('currentStoreName').innerText = `Loja ${tabId}`;
+                const srcInp = document.getElementById('searchInput');
+                const dtFilt = document.getElementById('dateFilter');
+                if(srcInp) srcInp.value = ''; 
+                if(dtFilt) dtFilt.value = 'all'; 
+                renderStoreTable(tabId);
+                updateStoreHeader(tabId);
+                loadBreakageData();
+            }
+        }
+
+        function calcItem(ideal, av, pk, dp) {
+            let nAV = parseInt(av) || 0;
+            let nPK = parseInt(pk) || 0;
+            let nDP = parseInt(dp) || 0;
+            
+            let totalEnc = nAV + nPK + nDP;
+            let encCalc = totalEnc > ideal ? ideal : totalEnc;
+            let ruptura = ideal > 0 ? ((ideal - encCalc) / ideal) * 100 : 0;
+            
+            return { total: totalEnc, ruptura: ruptura.toFixed(1) };
+        }
+
+        function getStatusBadge(rup) {
+            if (rup === null || rup === '') return `<span class="badge bg-slate-200 text-slate-500">Pendente</span>`;
+            if (rup <= 5) return `<span class="badge bg-success">Regular</span>`;
+            if (rup <= 20) return `<span class="badge bg-warning">Atenção</span>`;
+            return `<span class="badge bg-danger">Crítico</span>`;
+        }
+
+        function renderStoreTable(storeId, filter = '', dateFilt = 'all') {
+            const tbody = document.getElementById('storeTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            const filterLower = filter.toLowerCase();
+
+            BaseItems.forEach(item => {
+                if (dateFilt !== 'all' && item.data !== dateFilt) return; 
+                if (filter && !item.cat.toLowerCase().includes(filterLower) && !item.sub.toLowerCase().includes(filterLower)) return;
+
+                const data = (appData[storeId] && appData[storeId][item.id]) ? appData[storeId][item.id] : { av: '', pk: '', dp: '' };
+                
+                let isFilled = data.av !== '' || data.pk !== '' || data.dp !== '';
+                let calc = isFilled ? calcItem(item.ideal, data.av, data.pk, data.dp) : {total: '-', ruptura: null};
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+                tr.innerHTML = `
+                    <td class="px-4 py-3">
+                        <p class="font-semibold text-slate-800">${item.cat}</p>
+                        <p class="text-xs text-slate-500">${item.sub}</p>
+                        <span class="inline-block mt-1 px-2 py-0.5 bg-slate-200 text-slate-600 rounded text-[10px] font-bold"><i class="fa-regular fa-calendar mr-1"></i>${item.data}</span>
+                    </td>
+                    <td class="px-4 py-3 text-center font-bold text-slate-600">${item.ideal}</td>
+                    <td class="px-4 py-3 text-center bg-blue-50/30">
+                        <input type="number" min="0" class="audit-input" value="${data.av}" onkeyup="handleInput('${storeId}', ${item.id}, 'av', this.value)">
+                    </td>
+                    <td class="px-4 py-3 text-center bg-purple-50/30">
+                        <input type="number" min="0" class="audit-input" value="${data.pk}" onkeyup="handleInput('${storeId}', ${item.id}, 'pk', this.value)">
+                    </td>
+                    <td class="px-4 py-3 text-center bg-amber-50/30">
+                        <input type="number" min="0" class="audit-input" value="${data.dp}" onkeyup="handleInput('${storeId}', ${item.id}, 'dp', this.value)">
+                    </td>
+                    <td class="px-4 py-3 text-center font-bold text-slate-800" id="tot-${item.id}">${calc.total}</td>
+                    <td class="px-4 py-3 text-center font-bold ${calc.ruptura > 20 ? 'text-red-600' : 'text-slate-600'}" id="rup-${item.id}">
+                        ${calc.ruptura !== null ? calc.ruptura + '%' : '-'}
+                    </td>
+                    <td class="px-4 py-3 text-center" id="badge-${item.id}">
+                        ${getStatusBadge(calc.ruptura)}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateStoreHeader(storeId) {
+            let preenchidos = 0;
+            let somaRuptura = 0;
+            let contRuptura = 0;
+            
+            let countRegular = 0, countCritical = 0;
+            let locAV = 0, locPK = 0, locDP = 0;
+            
+            let storeCatStats = {};
+
+            BaseItems.forEach(item => {
+                const d = (appData[storeId] && appData[storeId][item.id]) ? appData[storeId][item.id] : { av: '', pk: '', dp: '' };
+                if (d.av !== '' || d.pk !== '' || d.dp !== '') {
+                    preenchidos++;
+                    let c = calcItem(item.ideal, d.av, d.pk, d.dp);
+                    let rup = parseFloat(c.ruptura);
+                    
+                    somaRuptura += rup;
+                    contRuptura++;
+
+                    if(rup <= 5) countRegular++;
+                    if(rup > 20) countCritical++;
+
+                    locAV += parseInt(d.av) || 0;
+                    locPK += parseInt(d.pk) || 0;
+                    locDP += parseInt(d.dp) || 0;
+
+                    if(!storeCatStats[item.cat]) storeCatStats[item.cat] = { sumRup: 0, count: 0 };
+                    storeCatStats[item.cat].sumRup += rup;
+                    storeCatStats[item.cat].count++;
+                }
+            });
+
+            const prog = ((preenchidos / BaseItems.length) * 100).toFixed(0);
+            const rupMedia = contRuptura > 0 ? (somaRuptura / contRuptura).toFixed(1) : 0;
+
+            const elProgTxt = document.getElementById('loja-progresso-txt');
+            if(elProgTxt) elProgTxt.innerText = `${prog}%`;
+            
+            const elRupTxt = document.getElementById('loja-ruptura-txt');
+            if(elRupTxt) elRupTxt.innerText = `${rupMedia}%`;
+            
+            const elStoreChck = document.getElementById('store-kpi-checked');
+            if(elStoreChck) {
+                elStoreChck.innerText = preenchidos;
+                document.getElementById('store-kpi-pending').innerText = BaseItems.length - preenchidos;
+                document.getElementById('store-kpi-regular').innerText = countRegular;
+                document.getElementById('store-kpi-critical').innerText = countCritical;
+            }
+
+            renderStoreCharts(storeId, locAV, locPK, locDP, storeCatStats);
+        }
+
+        function renderStoreCharts(storeId, av, pk, dp, catStats) {
+            const ctxLocEl = document.getElementById('chartStoreLocations');
+            if(!ctxLocEl) return;
+            
+            if(chartsInstance.storePie) chartsInstance.storePie.destroy();
+            if(chartsInstance.storeBar) chartsInstance.storeBar.destroy();
+
+            const ctxLoc = ctxLocEl.getContext('2d');
+            let hasDataLoc = av > 0 || pk > 0 || dp > 0;
+            chartsInstance.storePie = new Chart(ctxLoc, {
+                type: 'doughnut',
+                data: {
+                    labels: hasDataLoc ? ['Área de Venda', 'Picking', 'Depósito'] : ['Sem Dados'],
+                    datasets: [{
+                        data: hasDataLoc ? [av, pk, dp] : [1],
+                        backgroundColor: hasDataLoc ? ['#3b82f6', '#9333ea', '#f59e0b'] : ['#e2e8f0'],
+                        borderWidth: 2,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+
+            const ctxCat = document.getElementById('chartStoreTopRuptura').getContext('2d');
+            let sortedCats = Object.keys(catStats)
+                .map(k => ({ name: k, media: catStats[k].sumRup / catStats[k].count }))
+                .sort((a,b) => b.media - a.media)
+                .slice(0, 4);
+
+            chartsInstance.storeBar = new Chart(ctxCat, {
+                type: 'bar',
+                data: {
+                    labels: sortedCats.length ? sortedCats.map(c => c.name.substring(0, 10) + '..') : ['Sem Dados'],
+                    datasets: [{
+                        label: '% Ruptura',
+                        data: sortedCats.length ? sortedCats.map(c => c.media.toFixed(1)) : [0],
+                        backgroundColor: '#dc0c24',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, max: 100 },
+                        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // --- VISÃO REGIONAL ---
+        function updateRegionalView() {
+            let statsLojas = [];
+            let totalAV = 0, totalPK = 0, totalDP = 0;
+            let totalPreenchidos = 0;
+            let itensPorLoja = BaseItems.length;
+            let totalEsperado = itensPorLoja * Lojas.length;
+
+            let itemStats = {};
+            let regionalCatStats = {};
+            
+            let totalRegionalBreakage = 0;
+            let regionalBreakagePerDay = {};
+            cronogramaDiario.forEach(dia => { regionalBreakagePerDay[dia.data] = 0; });
+
+            BaseItems.forEach(i => itemStats[i.id] = { sumRup: 0, count: 0, lojasFalta: 0, name: i.sub, cat: i.cat });
+
+            Lojas.forEach(loja => {
+                let sRup = 0, sCount = 0, preenchidoLoja = 0;
+                
+                if(appData[loja] && appData[loja].breakage) {
+                    Object.keys(appData[loja].breakage).forEach(date => {
+                        let bVal = parseFloat(appData[loja].breakage[date].val) || 0;
+                        totalRegionalBreakage += bVal;
+                        if(regionalBreakagePerDay[date] !== undefined) {
+                            regionalBreakagePerDay[date] += bVal;
+                        }
+                    });
+                }
+
+                BaseItems.forEach(item => {
+                    const d = (appData[loja] && appData[loja][item.id]) ? appData[loja][item.id] : { av: '', pk: '', dp: '' };
+                    if (d.av !== '' || d.pk !== '' || d.dp !== '') {
+                        preenchidoLoja++; totalPreenchidos++;
+                        let calc = calcItem(item.ideal, d.av, d.pk, d.dp);
+                        let r = parseFloat(calc.ruptura);
+                        
+                        sRup += r; sCount++;
+                        totalAV += parseInt(d.av) || 0;
+                        totalPK += parseInt(d.pk) || 0;
+                        totalDP += parseInt(d.dp) || 0;
+
+                        itemStats[item.id].sumRup += r;
+                        itemStats[item.id].count++;
+                        if (r > 0) itemStats[item.id].lojasFalta++;
+
+                        if(!regionalCatStats[item.cat]) regionalCatStats[item.cat] = { sumRup: 0, count: 0 };
+                        regionalCatStats[item.cat].sumRup += r;
+                        regionalCatStats[item.cat].count++;
+                    }
+                });
+                let mediaLoja = sCount > 0 ? (sRup / sCount) : 0;
+                statsLojas.push({ loja: loja, ruptura: mediaLoja, preenchido: preenchidoLoja });
+            });
+
+            const elTotalBreakage = document.getElementById('reg-total-breakage');
+            if(elTotalBreakage) {
+                elTotalBreakage.innerText = totalRegionalBreakage.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+
+            let mediaRegional = Lojas.length > 0 ? (statsLojas.reduce((a, b) => a + b.ruptura, 0) / Lojas.length) : 0;
+            const elRegRupt = document.getElementById('reg-ruptura');
+            if(elRegRupt) elRegRupt.innerText = mediaRegional.toFixed(1) + '%';
+            
+            const elRegProg = document.getElementById('reg-progresso');
+            if(elRegProg) {
+                let progGeral = ((totalPreenchidos / totalEsperado) * 100);
+                elRegProg.innerText = progGeral.toFixed(0) + '%';
+                document.getElementById('reg-progresso-bar').style.width = progGeral + '%';
+                document.getElementById('reg-total-itens').innerText = totalEsperado;
+            }
+
+            let lojasAtivas = statsLojas.filter(s => s.preenchido > 0);
+            if (lojasAtivas.length > 0) {
+                let pior = lojasAtivas.reduce((prev, current) => (prev.ruptura > current.ruptura) ? prev : current);
+                const elPior = document.getElementById('reg-pior-loja');
+                if(elPior) {
+                    elPior.innerText = `Loja ${pior.loja}`;
+                    document.getElementById('reg-pior-loja-val').innerText = `${pior.ruptura.toFixed(1)}% de ruptura`;
+                }
+            } else {
+                const elPior = document.getElementById('reg-pior-loja');
+                if(elPior) {
+                    elPior.innerText = `-`;
+                    document.getElementById('reg-pior-loja-val').innerText = `Sem dados`;
+                }
+            }
+
+            let sortedItems = Object.values(itemStats)
+                                .filter(i => i.count > 0)
+                                .map(i => ({...i, media: i.sumRup / i.count}))
+                                .sort((a,b) => b.media - a.media)
+                                .slice(0, 5); 
+
+            const tBody = document.getElementById('regionalTableBody');
+            if(tBody) {
+                tBody.innerHTML = '';
+                if (sortedItems.length === 0) {
+                    tBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-slate-500">Nenhum dado preenchido.</td></tr>`;
+                } else {
+                    sortedItems.forEach(i => {
+                        tBody.innerHTML += `
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-3"><span class="font-semibold">${i.cat}</span> <br><span class="text-xs text-slate-500">${i.name}</span></td>
+                                <td class="px-6 py-3 text-center font-bold text-red-600">${i.media.toFixed(1)}%</td>
+                                <td class="px-6 py-3 text-center"><span class="bg-slate-200 text-slate-700 py-1 px-2 rounded text-xs font-bold">${i.lojasFalta} / ${Lojas.length}</span></td>
+                            </tr>
+                        `;
+                    });
+                }
+            }
+
+            renderRegionalCharts(statsLojas, regionalCatStats, regionalBreakagePerDay);
+        }
+
+        function renderRegionalCharts(statsLojas, catStats, regionalBreakagePerDay) {
+            const ctxBarEl = document.getElementById('chartLojas');
+            if(!ctxBarEl) return;
+
+            if(chartsInstance.regBar) chartsInstance.regBar.destroy();
+            if(chartsInstance.regRadar) chartsInstance.regRadar.destroy();
+            if(chartsInstance.regLine) chartsInstance.regLine.destroy();
+
+            const ctxBar = ctxBarEl.getContext('2d');
+            chartsInstance.regBar = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: statsLojas.map(s => `Loja ${s.loja}`),
+                    datasets: [{
+                        label: '% Ruptura Média',
+                        data: statsLojas.map(s => s.ruptura.toFixed(1)),
+                        backgroundColor: statsLojas.map(s => s.ruptura > 20 ? '#dc0c24' : (s.ruptura > 10 ? '#f59e0b' : '#141848')),
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, ticks: { callback: function(value){return value+"%"} } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            const ctxRadar = document.getElementById('chartCategoriasRegional').getContext('2d');
+            let sortedCats = Object.keys(catStats).map(k => ({ name: k, media: catStats[k].sumRup / catStats[k].count })).sort((a,b) => b.media - a.media).slice(0, 5);
+            
+            chartsInstance.regRadar = new Chart(ctxRadar, {
+                type: 'polarArea',
+                data: {
+                    labels: sortedCats.length ? sortedCats.map(c => c.name.substring(0,10)+'.') : ['Sem Dados'],
+                    datasets: [{
+                        data: sortedCats.length ? sortedCats.map(c => c.media.toFixed(1)) : [1],
+                        backgroundColor: ['rgba(220,12,36,0.7)', 'rgba(20,24,72,0.7)', 'rgba(245,158,11,0.7)', 'rgba(16,185,129,0.7)', 'rgba(147,51,234,0.7)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } },
+                    scales: { r: { ticks: { display: false } } }
+                }
+            });
+
+            const ctxLine = document.getElementById('chartRegionalBreakage').getContext('2d');
+            let dates = cronogramaDiario.map(d => d.data);
+            let breakages = dates.map(d => regionalBreakagePerDay[d]);
+
+            chartsInstance.regLine = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Quebra Financeira (R$)',
+                        data: breakages,
+                        borderColor: '#dc0c24',
+                        backgroundColor: 'rgba(220,12,36,0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: '#141848',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: function(value){ return 'R$ ' + value; } } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
